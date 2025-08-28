@@ -1,0 +1,23 @@
+[Unit]
+Description=FastAPI Uvicorn Application for PyCon JP
+After=network.target
+
+[Service]
+User=vagrant
+Group=vagrant
+
+WorkingDirectory=/home/vagrant/pyconjp
+EnvironmentFile=/home/vagrant/pyconjp/.env
+ExecStart=/home/vagrant/pyconjp/.venv/bin/gunicorn \
+    --bind 0.0.0.0:8000 \
+    -w 17 \
+    --name pyconjp-fastapi-app \
+    --timeout 60 \
+    -k uvicorn.workers.UvicornWorker \
+    app.main:app
+
+Restart=always
+RestartSec=3s
+
+[Install]
+WantedBy=multi-user.target

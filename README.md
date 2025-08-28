@@ -22,27 +22,19 @@ $ source .bashrc
 $ pyenv install 3.13.7
 $ pyenv global 3.13.7
 
-$ 
-$ mkdir -p code/pyconjp-project
-$ cd $_
-$ python -m venv .venv
-$ git clone https://github.com/takashi74/key_ticket_system
-$ source .venv/bin/activate
+$ git clone https://github.com/takashi74/key_ticket_system pyconjp
+$ cd pyconjp
 
+$ sudo cp infra/pyconjp-ticket.service /etc/systemd/system/
+
+$ python -m venv .venv
+$ source .venv/bin/activate
 (.venv) $ pip install -U pip
 (.venv) $ pip install -r requirements.txt
-```
-### Uvicorn
-```
-$ 
-```
-
-```
-$ source .venv/bin/activate
-
-(.venv) $ pip install -U pip
-(.venv) $ pip install requirements.txt
-
+(.venv) $ deactivate
+$ sudo systemctl daemon-reload
+$ sudo systemctl enable pyconjp-ticket.service
+$ sudo systemctl restart pyconjp-ticket.service
 ```
 
 
