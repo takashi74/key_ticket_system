@@ -6,7 +6,7 @@ Secure HLS System
 ```
 $ sudo dnf -y update
 $ sudo dnf -y groupinstall "Development Tools"
-$ sudo dnf -y install bzip2-devel.x86_64 ncurses-devel.x86_64 libffi-devel.x86_64 readline-devel.x86_64 sqlite-devel.x86_64
+$ sudo dnf -y install policycoreutils-python-utils bzip2-devel.x86_64 ncurses-devel.x86_64 libffi-devel.x86_64 readline-devel.x86_64 sqlite-devel.x86_64
 
 $ git clone https://github.com/pyenv/pyenv.git ~/.pyenv
 $ echo 'export PYENV_ROOT="$HOME/.pyenv"' >> ~/.bashrc
@@ -22,7 +22,8 @@ $ source .bashrc
 $ pyenv install 3.13.7
 $ pyenv global 3.13.7
 
-$ git clone https://github.com/takashi74/key_ticket_system pyconjp
+$ git clone https://github.com/takashi74/key_ticket_system
+$ ln -s key_ticket_system pyconjp
 $ cd pyconjp
 
 $ sudo cp infra/pyconjp-ticket.service /etc/systemd/system/
@@ -31,10 +32,15 @@ $ python -m venv .venv
 $ source .venv/bin/activate
 (.venv) $ pip install -U pip
 (.venv) $ pip install -r requirements.txt
+(.venv) $ cp app/.env.sample app/.env
+(.venv) $ vi app/.env
 (.venv) $ deactivate
+
+# (selinux todo)
+
 $ sudo systemctl daemon-reload
 $ sudo systemctl enable pyconjp-ticket.service
-$ sudo systemctl restart pyconjp-ticket.service
+$ sudo systemctl start pyconjp-ticket.service
 ```
 
 ## Sequence Diagram
@@ -102,4 +108,4 @@ sequenceDiagram
     A-->>A: プレイヤーを表示
     A->>U: プレイヤーを再生
     J-->>U: 動画の視聴
-```
+```e
