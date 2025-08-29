@@ -20,16 +20,21 @@ logger = logging.getLogger(__name__)
 # 環境変数読み込み
 # --------------------------
 load_dotenv()
-CLIENT_ID = os.getenv("CLIENT_ID")
-CLIENT_SECRET = os.getenv("CLIENT_SECRET")
-REDIRECT_URI = os.getenv("REDIRECT_URI")
-PRETIX_API_BASE = os.getenv("PRETIX_API_BASE")
-PRETIX_API_TOKEN = os.getenv("PRETIX_API_TOKEN")
-ORGANIZER = os.getenv("ORGANIZER")
-LIVE_TICKET_ID = int(os.getenv("LIVE_TICKET_ID"))
-JWT_SECRET = os.getenv("JWT_SECRET")
-JWT_EXP = int(os.getenv("JWT_EXP"))
-STATIC_PAGE_URL = os.getenv("STATIC_PAGE_URL")
+PRETIX_API_BASE     = os.getenv("PRETIX_API_BASE")
+ORGANIZER           = os.getenv("ORGANIZER")
+CLIENT_ID           = os.getenv("CLIENT_ID")
+CLIENT_SECRET       = os.getenv("CLIENT_SECRET")
+REDIRECT_URI        = os.getenv("REDIRECT_URI")
+PRETIX_API_TOKEN    = os.getenv("PRETIX_API_TOKEN")
+LIVE_TICKET_ID      = int(os.getenv("LIVE_TICKET_ID"))
+JST_BASE            = os.getenv("JST_BASE")
+JST_API             = os.getenv("JST_API")
+JST_SESS            = os.getenv("JST_SESS")
+JST_APP_LIVE        = os.getenv("JST_APP_LIVE")
+JST_APP_AUTH        = os.getenv("JST_APP_AUTH")
+JWT_SECRET          = os.getenv("JWT_SECRET")
+JWT_EXP             = int(os.getenv("JWT_EXP"))
+STATIC_PAGE_URL     = os.getenv("STATIC_PAGE_URL")
 ALLOWED_ORIGINS_STR = os.getenv("ALLOWED_ORIGINS")
 ALLOWED_METHODS_STR = os.getenv("ALLOWED_METHODS", "*")
 ALLOWED_HEADERS_STR = os.getenv("ALLOWED_HEADERS", "*")
@@ -38,7 +43,9 @@ ALLOWED_HEADERS_STR = os.getenv("ALLOWED_HEADERS", "*")
 REQUIRED_ENV = [
     "CLIENT_ID", "CLIENT_SECRET", "REDIRECT_URI", "PRETIX_API_TOKEN",
     "PRETIX_API_BASE", "ORGANIZER", "LIVE_TICKET_ID", "JWT_SECRET", "JWT_EXP",
-    "STATIC_PAGE_URL", "ALLOWED_ORIGINS"
+    "STATIC_PAGE_URL", "ALLOWED_ORIGINS", "JST_API_BASE", "JST_TENANT_KEY",
+    "JST_CLIENT_KEY", "JST_CLIENT_SECRET", "JST_RECOURCE_URL", "JST_GRANT_TYPE", 
+    "JST_CONTENT_ID"
 ]
 for var in REQUIRED_ENV:
     if not os.getenv(var):
@@ -47,7 +54,6 @@ for var in REQUIRED_ENV:
 # --------------------------
 # FastAPI 初期化
 # --------------------------
-# asynccontextmanager を使用して、アプリケーションのライフサイクル内で httpx クライアントを管理
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.httpx_client = httpx.AsyncClient()
@@ -86,7 +92,7 @@ async def oauth_callback(
 ):
     logger.info(f"Received OAuth2 code: {code}")
 
-    # 1. アクセストークン取得
+    # 1. Pretixアクセストークン取得
     try:
         token_resp = await client.post(
             f"{PRETIX_API_BASE}/{ORGANIZER}/oauth2/v1/token",
@@ -152,16 +158,30 @@ async def oauth_callback(
     )
     logger.info(f"User '{email}' has_ticket: {has_ticket}")
 
-    # 4. JWT生成（email + has_ticket）
+    # --------------------------
+    # JST API呼び出しロジック
+    # --------------------------
+    jst_token = None
+    stream_id = None
+    session_id = None
+    
+    # 5. JWT生成
     payload = {
         "email": email,
         "has_ticket": has_ticket,
-        "exp": int(time.time()) + JWT_EXP
+        "exp": int(time.time()) + JWT_EXP,
+        "content_id": JST_CONTENT_ID,
     }
+    # stream_idとsession_idが取得できた場合のみJWTに追加
+    if stream_id:
+        payload["stream_id"] = stream_id
+    if session_id:
+        payload["session_id"] = session_id
+        
     token = jwt.encode(payload, JWT_SECRET, algorithm="HS256")
     logger.info(f"Generated JWT: {token}")
 
-    # 5. 静的ページにリダイレクト
+    # 6. 静的ページにリダイレクト
     redirect_url = f"{STATIC_PAGE_URL}?token={quote(token)}"
     logger.info(f"Redirect URL: {redirect_url}")
     return RedirectResponse(url=redirect_url)
@@ -177,7 +197,10 @@ async def verify(token: str = Query(...)):
         logger.info(f"Decoded payload: {decoded}")
         return {
             "email": decoded["email"],
-            "has_ticket": decoded["has_ticket"]
+            "has_ticket": decoded["has_ticket"],
+            "stream_id": decoded.get("stream_id"),
+            "content_id": decoded.get("content_id"),
+            "session_id": decoded.get("session_id")
         }
     except jwt.ExpiredSignatureError:
         logger.warning("JWT expired")

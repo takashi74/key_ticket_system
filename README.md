@@ -65,15 +65,28 @@ sequenceDiagram
         C->>P: API Token
         P->>A: client_idをページに反映
         P->>D: client_secret, apitokenを.envに反映
+
+        P->>I: トークンの取得
+        Note over P,I: POST https://api.stream.co.jp/v2.0/{tenant_id}/oauth2/token
+        I->>P: access token
+        P->>D: access tokenを.envに反映
         P->>I: ライブイベントの作成
+        Note over P,I: POST https://api.stream.co.jp/v2.0/wlives
         I-->>P: ライブ情報の取得
-        P->>J: コンテンツID(ユニークID)、ストリームIDの発行
+
+        P->>J: ストリームIDの発行
+        Note over P,J: https://api.stream.co.jp/v2.0/service/hlsauth
         J-->>P: ストリームID
-        P->>P: ユーザー情報を作成(ユニークID)
-        P->>J: 再生させるユーザーの登録
+
+        P->>P: ユーザー情報を作成 (json)
+        P->>J: 再生させるユーザーの作成
+        Note over P,J: PUT https://api-dev.stream.co.jp/v2.0/service/hlsauth/{stream_id}/user
+        P->>D: authenticated_url, stream_id, user_idを.envに反映
+
         P->>I: ライブ配信を実施
     end
-    U->>A: ライブ視聴ページにアクセス
+    A-->>U: 初期ページの表示<br>空のhls.jsを提供
+    U->>A: 再生権限の取得ボタンを押下
     A->>+B: ユーザーログイン情報を取得
     Note over A,B: /pyconjp/oauth2/v1/authorize
     alt Pretixにログインしていない
@@ -93,19 +106,20 @@ sequenceDiagram
     C-->>D: json { Orders Data }
     D->>D: Encode JWT
     D->>A: JWT付きで視聴ページにリダイレクト
+    A->>A: JWTからHLSアドレスを取得しプレイヤーを構築
     end
-    opt リロード時など
-    U->>A: 再生ボタンの押下
+    opt 購入フラグが有効な場合
+    U->>A: hls.jsの再生ボタンを有効化<br>再生開始
     end
     A->>D: JWTの整合性を確認
     Note over A,D: /verify
     opt 購入していない場合 整合性が不正な場合
-    D->>A: 購入を促すメッセージを表示
+    D->>A: 購入を促すエラーメッセージを表示
     end
-    D->>J: 再生権限情報を登録
+    D->>J: session_idの取得
+    Note over D,J:POST https://hls-auth-sess.cloud.stream.co.jp/v2.0/service/hlsauth/{stream_id}/session
     J->>D: session_id
-    D->>A: 再生用アドレスを取得
-    A-->>A: プレイヤーを表示
-    A->>U: プレイヤーを再生
-    J-->>U: 動画の視聴
+    D->>A: authenticated_urlとsession_idから再生可能なアドレスを返却
+    A->>A: イベントリスナーでプレイヤーにHLSアドレスを割り当て
+    A->>U: 動画の視聴
 ```
