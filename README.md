@@ -37,7 +37,8 @@ $ sudo systemctl enable pyconjp-ticket.service
 $ sudo systemctl restart pyconjp-ticket.service
 ```
 
-
+## Sequence Diagram
+### Live Stream Playing
 ```mermaid
 sequenceDiagram
     actor U as User
@@ -45,6 +46,7 @@ sequenceDiagram
     participant B as Pretix SSO<br>pretix.eu/pyconjp
     participant D as Auth Server<br>nginx/gunicorn/uvicorn<br>python/FastAPI
     participant C as Pretix API<br>pretix.eu/pyconjp
+    participant I as J-Stream Cloud<br>Live
     participant J as J-Stream Cloud<br>HLS-Auth
     actor P as PyCon JP Staff
 
@@ -57,7 +59,13 @@ sequenceDiagram
         C->>P: API Token
         P->>A: client_idをページに反映
         P->>D: client_secret, apitokenを.envに反映
-        P->>J: ライブ配信を実施
+        P->>I: ライブイベントの作成
+        I-->>P: ライブ情報の取得
+        P->>J: コンテンツID(ユニークID)、ストリームIDの発行
+        J-->>P: ストリームID
+        P->>P: ユーザー情報を作成(ユニークID)
+        P->>J: 再生させるユーザーの登録
+        P->>I: ライブ配信を実施
     end
     U->>A: ライブ視聴ページにアクセス
     A->>+B: ユーザーログイン情報を取得
@@ -89,8 +97,9 @@ sequenceDiagram
     D->>A: 購入を促すメッセージを表示
     end
     D->>J: 再生権限情報を登録
-    A->>J: 再生用アドレスを取得
-    J-->>A: HLS アドレス
-    A->>U: プレイヤーの表示
+    J->>D: session_id
+    D->>A: 再生用アドレスを取得
+    A-->>A: プレイヤーを表示
+    A->>U: プレイヤーを再生
     J-->>U: 動画の視聴
 ```

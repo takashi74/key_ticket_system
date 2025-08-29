@@ -23,7 +23,6 @@ load_dotenv()
 CLIENT_ID = os.getenv("CLIENT_ID")
 CLIENT_SECRET = os.getenv("CLIENT_SECRET")
 REDIRECT_URI = os.getenv("REDIRECT_URI")
-TOKEN_URL = os.getenv("TOKEN_URL")
 PRETIX_API_BASE = os.getenv("PRETIX_API_BASE")
 PRETIX_API_TOKEN = os.getenv("PRETIX_API_TOKEN")
 ORGANIZER = os.getenv("ORGANIZER")
@@ -37,7 +36,7 @@ ALLOWED_HEADERS_STR = os.getenv("ALLOWED_HEADERS", "*")
 
 # 必須の環境変数のチェック
 REQUIRED_ENV = [
-    "CLIENT_ID", "CLIENT_SECRET", "REDIRECT_URI", "TOKEN_URL", "PRETIX_API_TOKEN",
+    "CLIENT_ID", "CLIENT_SECRET", "REDIRECT_URI", "PRETIX_API_TOKEN",
     "PRETIX_API_BASE", "ORGANIZER", "LIVE_TICKET_ID", "JWT_SECRET", "JWT_EXP",
     "STATIC_PAGE_URL", "ALLOWED_ORIGINS"
 ]
@@ -90,7 +89,7 @@ async def oauth_callback(
     # 1. アクセストークン取得
     try:
         token_resp = await client.post(
-            TOKEN_URL,
+            f"{PRETIX_API_BASE}/{ORGANIZER}/oauth2/v1/token",
             data={
                 "grant_type": "authorization_code",
                 "code": code,

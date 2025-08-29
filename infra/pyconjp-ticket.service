@@ -7,10 +7,10 @@ User=vagrant
 Group=vagrant
 
 WorkingDirectory=/home/vagrant/pyconjp
-EnvironmentFile=/home/vagrant/pyconjp/.env
+EnvironmentFile=/home/vagrant/pyconjp/app/.env
 ExecStart=/home/vagrant/pyconjp/.venv/bin/gunicorn \
     --bind 0.0.0.0:8000 \
-    -w 17 \
+    -w 9 \
     --name pyconjp-fastapi-app \
     --timeout 60 \
     -k uvicorn.workers.UvicornWorker \
