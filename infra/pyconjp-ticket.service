@@ -7,7 +7,7 @@ User=vagrant
 Group=vagrant
 
 WorkingDirectory=/home/vagrant/pyconjp
-EnvironmentFile=/home/vagrant/pyconjp/app/.env
+EnvironmentFile=/home/vagrant/pyconjp/.env
 ExecStart=/home/vagrant/pyconjp/.venv/bin/gunicorn \
     --bind 0.0.0.0:8000 \
     -w 9 \

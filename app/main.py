@@ -7,7 +7,6 @@ from urllib.parse import quote
 import httpx
 import jwt
 import tomli
-from dotenv import load_dotenv
 from fastapi import FastAPI, Request, Query, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse, JSONResponse
@@ -37,20 +36,10 @@ def load_config(file_path: Path):
 # --------------------------
 # 環境変数 設定 読み込み
 # --------------------------
-# 現在のスクリプト（main.py）の親ディレクトリの絶対パスを取得
-script_dir = Path(__file__).parent
-# さらに一つ上の親ディレクトリ（プロジェクトルート）に移動
-project_root = script_dir.parent
-
-# .envとconfig.tomlのフルパスを構築
-env_path = project_root / ".env"
-config_path = project_root / "config.toml"
-
-# 新しいパスから.envファイルを読み込む
-# dotenv_pathを引数として渡すことで、カレントディレクトリに関わらず正しく読み込みます。
-load_dotenv(dotenv_path=env_path)
-
-# 新しいパスからconfig.tomlを読み込む
+# gunicornのWorkingDirectoryを基準にconfig.tomlを読み込む
+# systemdユニットファイルでEnvironmentFileが設定されているため、
+# os.getenv()は直接環境変数を読み込めます。
+config_path = Path(os.environ.get("CONFIG_PATH", "config.toml"))
 config = load_config(config_path)
 
 PRETIX_CLIENT_ID        = os.getenv("PRETIX_CLIENT_ID")

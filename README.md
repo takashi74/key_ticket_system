@@ -32,8 +32,8 @@ $ python -m venv .venv
 $ source .venv/bin/activate
 (.venv) $ pip install -U pip
 (.venv) $ pip install -r requirements.txt
-(.venv) $ cp app/.env.sample app/.env
-(.venv) $ vi app/.env
+(.venv) $ cp .env.sample .env
+(.venv) $ vi .env
 (.venv) $ deactivate
 
 # (selinux todo)
@@ -64,8 +64,7 @@ sequenceDiagram
         Note over P,C: /control/organizer/pyconjp/teams
         C->>P: API Token
         P->>A: client_idをページに反映
-        P->>D: client_secret, apitokenを.envに反映
-
+        P->>D: client_id, client_secret, apitokenを.envに反映
         P->>I: トークンの取得
         Note over P,I: POST https://api.stream.co.jp/v2.0/{tenant_id}/oauth2/token
         I->>P: access token
@@ -73,15 +72,10 @@ sequenceDiagram
         P->>I: ライブイベントの作成
         Note over P,I: POST https://api.stream.co.jp/v2.0/wlives
         I-->>P: ライブ情報の取得
-
         P->>J: ストリームIDの発行
         Note over P,J: https://api.stream.co.jp/v2.0/service/hlsauth
         J-->>P: ストリームID
-
-        P->>P: ユーザー情報を作成 (json)
-        P->>J: 再生させるユーザーの作成
-        Note over P,J: PUT https://api-dev.stream.co.jp/v2.0/service/hlsauth/{stream_id}/user
-        P->>D: authenticated_url, stream_id, user_idを.envに反映
+        P->>D: authenticated_url, stream_idをconfig.tomlに反映
 
         P->>I: ライブ配信を実施
     end
@@ -116,9 +110,12 @@ sequenceDiagram
     opt 購入していない場合 整合性が不正な場合
     D->>A: 購入を促すエラーメッセージを表示
     end
-    D->>J: session_idの取得
+    D->>J: 再生させるユーザーの登録
+    Note over D,J: PUT https://api-dev.stream.co.jp/v2.0/service/hlsauth/{stream_id}/user
+    J-->>D: accepted
+    D->>J: user_idとstream_idからsession_idの取得
     Note over D,J:POST https://hls-auth-sess.cloud.stream.co.jp/v2.0/service/hlsauth/{stream_id}/session
-    J->>D: session_id
+    J-->>D: session_id
     D->>A: authenticated_urlとsession_idから再生可能なアドレスを返却
     A->>A: イベントリスナーでプレイヤーにHLSアドレスを割り当て
     A->>U: 動画の視聴

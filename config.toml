@@ -19,7 +19,7 @@ hlsauth = "api-dev.stream.co.jp/v2.0/service/hlsauth"
 session = "hls-auth-sess-stg.cloud.stream.co.jp/v2.0"
 
 [live]
-pretix_live_ticket_id = 1
+pretix_live_ticket_id = 835615
 authenticated_url = "https://hls-auth-stg.cloud.stream.co.jp/auth/index.m3u8?session_id={session_id}"
 
 [[live.track]]
