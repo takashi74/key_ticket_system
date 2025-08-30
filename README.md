@@ -22,7 +22,7 @@ $ source .bashrc
 $ pyenv install 3.13.7
 $ pyenv global 3.13.7
 
-$ git clone https://github.com/takashi74/key_ticket_system
+$ git clone https://github.com/takashi74/key_ticket_system key_ticket_system_$(date +%Y%m%d_%H%M%S)
 $ ln -s key_ticket_system pyconjp
 $ cd pyconjp
 

@@ -3,14 +3,13 @@ import os
 import time
 from contextlib import asynccontextmanager
 from urllib.parse import quote
-
-import httpx
 import jwt
-import tomli
+import httpx
+import tomllib
 from fastapi import FastAPI, Request, Query, HTTPException, Depends
+from fastapi.responses import RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse, JSONResponse
-from pathlib import Path
+from dotenv import load_dotenv
 
 # --------------------------
 # ログ設定
@@ -19,29 +18,9 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # --------------------------
-# 設定ファイル読み込み
+# 環境変数読み込み
 # --------------------------
-def load_config(file_path: Path):
-    """TOML設定ファイルを読み込む"""
-    try:
-        with open(file_path, "rb") as f:
-            return tomli.load(f)
-    except FileNotFoundError:
-        logger.error(f"Config file not found: {file_path}")
-        raise
-    except tomli.TOMLDecodeError:
-        logger.error(f"Failed to parse TOML file: {file_path}")
-        raise
-
-# --------------------------
-# 環境変数 設定 読み込み
-# --------------------------
-# gunicornのWorkingDirectoryを基準にconfig.tomlを読み込む
-# systemdユニットファイルでEnvironmentFileが設定されているため、
-# os.getenv()は直接環境変数を読み込めます。
-config_path = Path(os.environ.get("CONFIG_PATH", "config.toml"))
-config = load_config(config_path)
-
+load_dotenv()
 PRETIX_CLIENT_ID        = os.getenv("PRETIX_CLIENT_ID")
 PRETIX_CLIENT_SECRET    = os.getenv("PRETIX_CLIENT_SECRET")
 PRETIX_API_TOKEN        = os.getenv("PRETIX_API_TOKEN")
@@ -50,22 +29,6 @@ JSTREAM_CLIENT_KEY      = os.getenv("JSTREAM_CLIENT_KEY")
 JSTREAM_CLIENT_SECRET   = os.getenv("JSTREAM_CLIENT_SECRET")
 JWT_SECRET              = os.getenv("JWT_SECRET")
 JWT_EXP                 = int(os.getenv("JWT_EXP"))
-
-STATIC_PAGE_URL         = config["page"]["url"]
-ALLOWED_ORIGINS_STR     = config["page"]["cors"]["origin"]
-ALLOWED_METHODS_STR     = config["page"]["cors"]["method"]
-ALLOWED_HEADERS_STR     = config["page"]["cors"]["header"]
-
-PRETIX_API_BASE         = config["api"]["pretix"]["base"]
-PRETIX_ORGANIZER        = config["api"]["pretix"]["organizer"]
-REDIRECT_URI            = config["api"]["pretix"]["redirect_uri"]
-
-JSTREAM_API_LIVE        = config["api"]["jstream"]["wlive"]
-JSTREAM_API_AUTH        = config["api"]["jstream"]["hlsauth"]
-JSTREAM_API_SESSION     = config["api"]["jstream"]["session"]
-
-LIVE_TICKET_ID          = config["live"]["pretix_live_ticket_id"]
-
 
 # 必須の環境変数のチェック
 REQUIRED_ENV = [
@@ -78,8 +41,31 @@ for var in REQUIRED_ENV:
         raise ValueError(f"Missing required environment variable: {var}")
 
 # --------------------------
+# 設定ファイル読み込み
+# --------------------------
+with open('config.toml', 'rb') as f:
+    config = tomllib.load(f)
+
+STATIC_PAGE_URL = config["page"]["url"]
+ALLOWED_ORIGINS_STR = config["page"]["cors"]["origin"]
+ALLOWED_METHODS_STR = config["page"]["cors"]["method"]
+ALLOWED_HEADERS_STR = config["page"]["cors"]["header"]
+
+PRETIX_API_BASE = config["api"]["pretix"]["base"]
+PRETIX_ORGANIZER = config["api"]["pretix"]["organizer"]
+PRETIX_REDIRECT_URI = config["api"]["pretix"]["redirect_uri"]
+
+JSTREAM_API_LIVE = config["api"]["jstream"]["wlive"]
+JSTREAM_API_AUTH = config["api"]["jstream"]["hlsauth"]
+JSTREAM_API_SESSION = config["api"]["jstream"]["session"]
+
+LIVE_TICKET_ID = int(config["live"]["pretix_live_ticket_id"])
+LIVE_TRACKS_BY_ID = {t["track"]: t for t in config["live"]["track"]}
+
+# --------------------------
 # FastAPI 初期化
 # --------------------------
+# asynccontextmanager を使用して、アプリケーションのライフサイクル内で httpx クライアントを管理
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.httpx_client = httpx.AsyncClient()
@@ -118,14 +104,14 @@ async def oauth_callback(
 ):
     logger.info(f"Received OAuth2 code: {code}")
 
-    # 1. Pretixアクセストークン取得
+    # 1. アクセストークン取得
     try:
         token_resp = await client.post(
             f"{PRETIX_API_BASE}/{PRETIX_ORGANIZER}/oauth2/v1/token",
             data={
                 "grant_type": "authorization_code",
                 "code": code,
-                "redirect_uri": REDIRECT_URI,
+                "redirect_uri": PRETIX_REDIRECT_URI,
                 "client_id": PRETIX_CLIENT_ID,
                 "client_secret": PRETIX_CLIENT_SECRET,
             }
@@ -184,16 +170,16 @@ async def oauth_callback(
     )
     logger.info(f"User '{email}' has_ticket: {has_ticket}")
 
-    # 5. JWT生成
+    # 4. JWT生成（email + has_ticket）
     payload = {
         "email": email,
         "has_ticket": has_ticket,
-        "exp": int(time.time()) + JWT_EXP,
+        "exp": int(time.time()) + JWT_EXP
     }
     token = jwt.encode(payload, JWT_SECRET, algorithm="HS256")
     logger.info(f"Generated JWT: {token}")
 
-    # 6. 静的ページにリダイレクト
+    # 5. 静的ページにリダイレクト
     redirect_url = f"{STATIC_PAGE_URL}?token={quote(token)}"
     logger.info(f"Redirect URL: {redirect_url}")
     return RedirectResponse(url=redirect_url)
@@ -209,10 +195,7 @@ async def verify(token: str = Query(...)):
         logger.info(f"Decoded payload: {decoded}")
         return {
             "email": decoded["email"],
-            "has_ticket": decoded["has_ticket"],
-            "stream_id": decoded.get("stream_id"),
-            "content_id": decoded.get("content_id"),
-            "session_id": decoded.get("session_id")
+            "has_ticket": decoded["has_ticket"]
         }
     except jwt.ExpiredSignatureError:
         logger.warning("JWT expired")
