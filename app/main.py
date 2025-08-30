@@ -3,12 +3,15 @@ import os
 import time
 from contextlib import asynccontextmanager
 from urllib.parse import quote
-import jwt
+
 import httpx
-from fastapi import FastAPI, Request, Query, HTTPException, Depends
-from fastapi.responses import RedirectResponse, JSONResponse
-from fastapi.middleware.cors import CORSMiddleware
+import jwt
+import tomli
 from dotenv import load_dotenv
+from fastapi import FastAPI, Request, Query, HTTPException, Depends
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse, JSONResponse
+from pathlib import Path
 
 # --------------------------
 # ログ設定
@@ -17,35 +20,69 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # --------------------------
-# 環境変数読み込み
+# 設定ファイル読み込み
 # --------------------------
-load_dotenv()
-PRETIX_API_BASE     = os.getenv("PRETIX_API_BASE")
-ORGANIZER           = os.getenv("ORGANIZER")
-CLIENT_ID           = os.getenv("CLIENT_ID")
-CLIENT_SECRET       = os.getenv("CLIENT_SECRET")
-REDIRECT_URI        = os.getenv("REDIRECT_URI")
-PRETIX_API_TOKEN    = os.getenv("PRETIX_API_TOKEN")
-LIVE_TICKET_ID      = int(os.getenv("LIVE_TICKET_ID"))
-JST_BASE            = os.getenv("JST_BASE")
-JST_API             = os.getenv("JST_API")
-JST_SESS            = os.getenv("JST_SESS")
-JST_APP_LIVE        = os.getenv("JST_APP_LIVE")
-JST_APP_AUTH        = os.getenv("JST_APP_AUTH")
-JWT_SECRET          = os.getenv("JWT_SECRET")
-JWT_EXP             = int(os.getenv("JWT_EXP"))
-STATIC_PAGE_URL     = os.getenv("STATIC_PAGE_URL")
-ALLOWED_ORIGINS_STR = os.getenv("ALLOWED_ORIGINS")
-ALLOWED_METHODS_STR = os.getenv("ALLOWED_METHODS", "*")
-ALLOWED_HEADERS_STR = os.getenv("ALLOWED_HEADERS", "*")
+def load_config(file_path: Path):
+    """TOML設定ファイルを読み込む"""
+    try:
+        with open(file_path, "rb") as f:
+            return tomli.load(f)
+    except FileNotFoundError:
+        logger.error(f"Config file not found: {file_path}")
+        raise
+    except tomli.TOMLDecodeError:
+        logger.error(f"Failed to parse TOML file: {file_path}")
+        raise
+
+# --------------------------
+# 環境変数 設定 読み込み
+# --------------------------
+# 現在のスクリプト（main.py）の親ディレクトリの絶対パスを取得
+script_dir = Path(__file__).parent
+# さらに一つ上の親ディレクトリ（プロジェクトルート）に移動
+project_root = script_dir.parent
+
+# .envとconfig.tomlのフルパスを構築
+env_path = project_root / ".env"
+config_path = project_root / "config.toml"
+
+# 新しいパスから.envファイルを読み込む
+# dotenv_pathを引数として渡すことで、カレントディレクトリに関わらず正しく読み込みます。
+load_dotenv(dotenv_path=env_path)
+
+# 新しいパスからconfig.tomlを読み込む
+config = load_config(config_path)
+
+PRETIX_CLIENT_ID        = os.getenv("PRETIX_CLIENT_ID")
+PRETIX_CLIENT_SECRET    = os.getenv("PRETIX_CLIENT_SECRET")
+PRETIX_API_TOKEN        = os.getenv("PRETIX_API_TOKEN")
+JSTREAM_TENANT_KEY      = os.getenv("JSTREAM_TENANT_KEY")
+JSTREAM_CLIENT_KEY      = os.getenv("JSTREAM_CLIENT_KEY")
+JSTREAM_CLIENT_SECRET   = os.getenv("JSTREAM_CLIENT_SECRET")
+JWT_SECRET              = os.getenv("JWT_SECRET")
+JWT_EXP                 = int(os.getenv("JWT_EXP"))
+
+STATIC_PAGE_URL         = config["page"]["url"]
+ALLOWED_ORIGINS_STR     = config["page"]["cors"]["origin"]
+ALLOWED_METHODS_STR     = config["page"]["cors"]["method"]
+ALLOWED_HEADERS_STR     = config["page"]["cors"]["header"]
+
+PRETIX_API_BASE         = config["api"]["pretix"]["base"]
+PRETIX_ORGANIZER        = config["api"]["pretix"]["organizer"]
+REDIRECT_URI            = config["api"]["pretix"]["redirect_uri"]
+
+JSTREAM_API_LIVE        = config["api"]["jstream"]["wlive"]
+JSTREAM_API_AUTH        = config["api"]["jstream"]["hlsauth"]
+JSTREAM_API_SESSION     = config["api"]["jstream"]["session"]
+
+LIVE_TICKET_ID          = config["live"]["pretix_live_ticket_id"]
+
 
 # 必須の環境変数のチェック
 REQUIRED_ENV = [
-    "CLIENT_ID", "CLIENT_SECRET", "REDIRECT_URI", "PRETIX_API_TOKEN",
-    "PRETIX_API_BASE", "ORGANIZER", "LIVE_TICKET_ID", "JWT_SECRET", "JWT_EXP",
-    "STATIC_PAGE_URL", "ALLOWED_ORIGINS", "JST_API_BASE", "JST_TENANT_KEY",
-    "JST_CLIENT_KEY", "JST_CLIENT_SECRET", "JST_RECOURCE_URL", "JST_GRANT_TYPE", 
-    "JST_CONTENT_ID"
+    "PRETIX_CLIENT_ID", "PRETIX_CLIENT_SECRET", "PRETIX_API_TOKEN",
+    "JSTREAM_TENANT_KEY", "JSTREAM_CLIENT_KEY", "JSTREAM_CLIENT_SECRET",
+    "JWT_SECRET", "JWT_EXP"
 ]
 for var in REQUIRED_ENV:
     if not os.getenv(var):
@@ -95,13 +132,13 @@ async def oauth_callback(
     # 1. Pretixアクセストークン取得
     try:
         token_resp = await client.post(
-            f"{PRETIX_API_BASE}/{ORGANIZER}/oauth2/v1/token",
+            f"{PRETIX_API_BASE}/{PRETIX_ORGANIZER}/oauth2/v1/token",
             data={
                 "grant_type": "authorization_code",
                 "code": code,
                 "redirect_uri": REDIRECT_URI,
-                "client_id": CLIENT_ID,
-                "client_secret": CLIENT_SECRET,
+                "client_id": PRETIX_CLIENT_ID,
+                "client_secret": PRETIX_CLIENT_SECRET,
             }
         )
         token_resp.raise_for_status()
@@ -120,7 +157,7 @@ async def oauth_callback(
     # 2. Pretix APIでユーザー情報取得
     try:
         user_resp = await client.get(
-            f"{PRETIX_API_BASE}/{ORGANIZER}/oauth2/v1/userinfo",
+            f"{PRETIX_API_BASE}/{PRETIX_ORGANIZER}/oauth2/v1/userinfo",
             headers={"Authorization": f"Bearer {access_token}"}
         )
         user_resp.raise_for_status()
@@ -138,7 +175,7 @@ async def oauth_callback(
 
     # 3. Pretix APIで購入情報取得
     try:
-        orders_url = f"{PRETIX_API_BASE}/api/v1/organizers/{ORGANIZER}/orders/?email={quote(email)}"
+        orders_url = f"{PRETIX_API_BASE}/api/v1/organizers/{PRETIX_ORGANIZER}/orders/?email={quote(email)}"
         headers = {"Authorization": f"Token {PRETIX_API_TOKEN}"}
         orders_resp = await client.get(orders_url, headers=headers)
         orders_resp.raise_for_status()
@@ -158,26 +195,12 @@ async def oauth_callback(
     )
     logger.info(f"User '{email}' has_ticket: {has_ticket}")
 
-    # --------------------------
-    # JST API呼び出しロジック
-    # --------------------------
-    jst_token = None
-    stream_id = None
-    session_id = None
-    
     # 5. JWT生成
     payload = {
         "email": email,
         "has_ticket": has_ticket,
         "exp": int(time.time()) + JWT_EXP,
-        "content_id": JST_CONTENT_ID,
     }
-    # stream_idとsession_idが取得できた場合のみJWTに追加
-    if stream_id:
-        payload["stream_id"] = stream_id
-    if session_id:
-        payload["session_id"] = session_id
-        
     token = jwt.encode(payload, JWT_SECRET, algorithm="HS256")
     logger.info(f"Generated JWT: {token}")
 

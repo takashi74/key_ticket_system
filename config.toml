@@ -1,0 +1,43 @@
+# PyCon JP 2025 Setting
+
+[page]
+url = "https://pycon-live-viewer.pages.dev/"
+
+[page.cors]
+origin = "https://pycon-live-viewer.pages.dev"
+method = "*"
+header = "*"
+
+[api.pretix]
+base = "https://pretix.eu"
+organizer = "pyconjp"
+redirect_url = "https://auth.streamtech.cloud/callback"
+
+[api.jstream]
+wlive = "api-dev.stream.co.jp/v2.0/wlives"
+hlsauth = "api-dev.stream.co.jp/v2.0/service/hlsauth"
+session = "hls-auth-sess-stg.cloud.stream.co.jp/v2.0"
+
+[live]
+pretix_live_ticket_id = 1
+authenticated_url = "https://hls-auth-stg.cloud.stream.co.jp/auth/index.m3u8?session_id={session_id}"
+
+[[live.track]]
+track = 1
+live_id = "003b2rtl7jfdpm4a"
+stream_id = "d65dac2d-b1fa-44f5-9d25-2c7271862104"
+
+[[live.track]]
+track = 2
+live_id = "r7k761g3ecwtghru"
+stream_id = "e5284a46-0808-4329-a4ab-685e0d2db588"
+
+[[live.track]]
+track = 3
+live_id = "dr4futq8te2qdzuh"
+stream_id = "f17e2dca-3e56-4d71-99f6-7ba976311b69"
+
+[[live.track]]
+track = 4
+live_id = "s8o6zlf9cr09mn4l"
+stream_id = "072eed0b-8397-4b07-a202-510bce4d6097"
