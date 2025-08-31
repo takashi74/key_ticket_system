@@ -285,6 +285,7 @@ async def get_session_id(
     request: Request,
     token: str = Query(...),
     stream_id: str = Query(...),
+    is_debug: bool = Query(False),
     client: httpx.AsyncClient = Depends(get_httpx_client)
 ):
     try:
@@ -314,7 +315,10 @@ async def get_session_id(
         session_id = await _get_jstream_user_session_id(client, jstream_client_token, email, stream_id)
 
         # 再生URLの構築
-        playback_url = AUTHENTICATED_URL.replace("{session_id}", session_id)
+        if is_debug:
+            playback_url = "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8"
+        else:
+            playback_url = AUTHENTICATED_URL.replace("{session_id}", session_id)
         logger.info(f"Playback URL generated: {playback_url}")
 
         return JSONResponse(content={"playback_url": playback_url})
