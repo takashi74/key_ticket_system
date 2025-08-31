@@ -55,7 +55,7 @@ async def _get_jstream_client_credentials_token(client: httpx.AsyncClient) -> st
     logger.info("JSTREAM クライアントトークン取得APIを呼び出します...")
     try:
         jstream_auth_base_url = "https://" + "/".join(JSTREAM_API_LIVE.split('/')[:1])
-        
+
         response = await client.post(
             f"{jstream_auth_base_url}/v2.0/{JSTREAM_TENANT_KEY}/oauth2/token",
             params={
@@ -80,11 +80,11 @@ async def _get_jstream_client_credentials_token(client: httpx.AsyncClient) -> st
 async def _register_jstream_user(client: httpx.AsyncClient, client_token: str, stream_id: str, email: str) -> None:
     """J-Stream HLS-Authにユーザーを登録する"""
     logger.info(f"J-Stream HLS-Authユーザー登録APIを呼び出します。ユーザー: {email}, ストリームID: {stream_id}...")
-    
+
     # 成功したJavaScriptコードを参考に、JSONペイロードの構造を修正
     email_payload = {"user_id": [email]}
     email_json = json.dumps(email_payload)
-    
+
     try:
         # files引数を使って、JSONデータをファイルとして送信するように修正
         # ファイル名とコンテンツタイプを明示的に指定
@@ -261,7 +261,7 @@ async def oauth_callback(
                 logger.error(f"ユーザー登録に失敗しました。ストリームID: {stream_id}, エラー: {e.detail}")
                 # 特定のトラックで失敗しても、他のトラックの処理を継続
                 continue
-            
+
     # 5. JWT生成（email + has_ticket + JSTREAM登録情報）
     payload = {
         "email": email,
@@ -297,20 +297,21 @@ async def get_session_id(
 
         # 登録済みトラックのチェック
         registered_tracks = decoded_jwt.get("jstream_registered_tracks", {})
+        
+        # ここで詳細ログ出力
+        logger.info(f"JWT jstream_registered_tracks content: {registered_tracks}")
+        logger.info(f"Requested stream_id: {stream_id}")
+        logger.info(f"Is user registered for requested stream? {registered_tracks.get(stream_id, False)}")
+        
         if not registered_tracks.get(stream_id, False):
             logger.warning(f"User {email} is not registered for stream {stream_id}")
             raise HTTPException(status_code=403, detail="User is not registered for this stream.")
-        logger.info(f"User {email} is registered for stream {stream_id}")
 
         # クライアントトークンの取得
-        logger.info("Fetching JSTREAM client token...")
         jstream_client_token = await _get_jstream_client_credentials_token(client)
-        logger.info("JSTREAM client token obtained successfully.")
 
         # ユーザーセッションIDの取得
-        logger.info(f"Fetching JSTREAM session ID for user {email} and stream {stream_id}...")
         session_id = await _get_jstream_user_session_id(client, jstream_client_token, email, stream_id)
-        logger.info(f"JSTREAM session ID obtained successfully: {session_id}")
 
         # 再生URLの構築
         playback_url = AUTHENTICATED_URL.replace("{session_id}", session_id)
