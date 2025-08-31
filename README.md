@@ -76,7 +76,6 @@ sequenceDiagram
         Note over P,J: https://api.stream.co.jp/v2.0/service/hlsauth
         J-->>P: ストリームID
         P->>D: authenticated_url, stream_idをconfig.tomlに反映
-
         P->>I: ライブ配信を実施
     end
     A-->>U: 初期ページの表示<br>空のhls.jsを提供
@@ -98,6 +97,9 @@ sequenceDiagram
     D->>C: メールアドレスを元に購入情報を取得
     Note over C,D: /api/v1/organizers/pyconjp/orders/?email={E-mail}<br>Authorization: Token
     C-->>D: json { Orders Data }
+    D->>J: 購入されていれば再生させるユーザーのメールアドレスをuser_idとして登録
+    Note over D,J: PUT https://api-dev.stream.co.jp/v2.0/service/hlsauth/{stream_id}/user
+    J-->>D: accepted
     D->>D: Encode JWT
     D->>A: JWT付きで視聴ページにリダイレクト
     A->>A: JWTからHLSアドレスを取得しプレイヤーを構築
@@ -110,9 +112,6 @@ sequenceDiagram
     opt 購入していない場合 整合性が不正な場合
     D->>A: 購入を促すエラーメッセージを表示
     end
-    D->>J: 再生させるユーザーの登録
-    Note over D,J: PUT https://api-dev.stream.co.jp/v2.0/service/hlsauth/{stream_id}/user
-    J-->>D: accepted
     D->>J: user_idとstream_idからsession_idの取得
     Note over D,J:POST https://hls-auth-sess.cloud.stream.co.jp/v2.0/service/hlsauth/{stream_id}/session
     J-->>D: session_id
