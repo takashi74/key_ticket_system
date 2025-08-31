@@ -2,7 +2,7 @@
 import os
 import tomllib
 from dotenv import load_dotenv
-from logger import logger
+from app.logger import logger
 
 load_dotenv()
 

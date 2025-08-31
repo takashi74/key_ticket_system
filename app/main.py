@@ -14,8 +14,8 @@ from fastapi.responses import RedirectResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
-from logger import logger
-from config import *
+from app.logger import logger
+from app.config import *
 
 
 # --------------------------
