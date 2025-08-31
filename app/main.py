@@ -14,43 +14,7 @@ from fastapi.responses import RedirectResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
-# --------------------------
-# ログ設定
-# --------------------------
-# logsディレクトリが存在しない場合は作成
-if not os.path.exists("logs"):
-    os.makedirs("logs")
-
-# ロガーの初期設定
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-
-# コンソールハンドラーの設定
-ch = logging.StreamHandler()
-ch.setLevel(logging.INFO)
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s - %(lineno)d')
-ch.setFormatter(formatter)
-
-# ファイルハンドラーの設定（INFOログまで）
-fh_app = logging.FileHandler("logs/app.log")
-fh_app.setLevel(logging.INFO)
-fh_app.setFormatter(formatter)
-
-# ファイルハンドラーの設定（エラーログ専用）
-fh_error = logging.FileHandler("logs/error.log")
-fh_error.setLevel(logging.ERROR)
-fh_error.setFormatter(formatter)
-
-# ロガーにハンドラーを追加
-logger.addHandler(ch)
-logger.addHandler(fh_app)
-logger.addHandler(fh_error)
-
-# --------------------------
-# 環境変数と設定ファイルの読み込み
-# --------------------------
-
-# config.py から設定をインポート
+from logger import logger
 from config import *
 
 
