@@ -113,30 +113,49 @@ async def _register_jstream_user(client: httpx.AsyncClient, client_token: str, s
         logger.error(f"Request Payload (user_list): {email_json}")
         raise HTTPException(status_code=500, detail="J-Stream HLS-Authユーザー登録中にエラーが発生しました。")
 
-async def _get_jstream_user_session_id(client: httpx.AsyncClient, client_token: str, email: str, stream_id: str) -> str:
-    """ユーザーセッションIDを取得する"""
+async def _get_jstream_user_session_id(
+    client: httpx.AsyncClient,
+    client_token: str,
+    email: str,
+    stream_id: str
+) -> str:
+    """ユーザーセッションIDを取得する（フォーム形式）"""
     logger.info(f"JSTREAM セッションID取得APIを呼び出します。ユーザー: {email}, ストリームID: {stream_id}...")
+
     try:
+        # フォーム形式で送るデータは user_id のみ
+        data_payload = {"user_id": email}
+
         response = await client.post(
             f"https://{JSTREAM_API_SESSION}/service/hlsauth/{stream_id}/session",
-            json={
-                "email": email,
-            },
+            data=data_payload,  # ← フォーム形式
             headers={
-                "Authorization": f"Bearer {client_token}"
+                "Authorization": f"Bearer {client_token}",
+                "Accept": "application/json",
+                "Content-Type": "application/x-www-form-urlencoded"
             }
         )
         response.raise_for_status()
         session_id = response.json().get("session_id")
         if session_id:
             logger.info(f"JSTREAMセッションIDの取得に成功しました。Session ID: {session_id}")
+        else:
+            logger.warning("JSTREAMセッションIDがレスポンスに含まれていません。")
         return session_id
+
     except httpx.HTTPStatusError as e:
         logger.error(f"JSTREAM セッションID取得エラー: {e.response.status_code} - {e.response.text}")
-        raise HTTPException(status_code=e.response.status_code, detail=f"Failed to get JSTREAM user session ID: {e.response.text}")
+        raise HTTPException(
+            status_code=e.response.status_code,
+            detail=f"Failed to get JSTREAM user session ID: {e.response.text}"
+        )
     except Exception as e:
         logger.error(f"JSTREAMセッションID取得中に予期せぬエラーが発生しました: {e}")
-        raise HTTPException(status_code=500, detail="JSTREAMセッションID取得中にエラーが発生しました。")
+        raise HTTPException(
+            status_code=500,
+            detail="JSTREAMセッションID取得中にエラーが発生しました。"
+        )
+
 
 
 # --------------------------
@@ -269,34 +288,48 @@ async def get_session_id(
     client: httpx.AsyncClient = Depends(get_httpx_client)
 ):
     try:
+        logger.info(f"/session API called. Token: {token}, Stream ID: {stream_id}")
+
+        # JWTデコード
         decoded_jwt = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
         email = decoded_jwt.get("email")
-        
+        logger.info(f"JWT decoded successfully. Email: {email}")
+
         # 登録済みトラックのチェック
         registered_tracks = decoded_jwt.get("jstream_registered_tracks", {})
         if not registered_tracks.get(stream_id, False):
+            logger.warning(f"User {email} is not registered for stream {stream_id}")
             raise HTTPException(status_code=403, detail="User is not registered for this stream.")
+        logger.info(f"User {email} is registered for stream {stream_id}")
 
         # クライアントトークンの取得
+        logger.info("Fetching JSTREAM client token...")
         jstream_client_token = await _get_jstream_client_credentials_token(client)
+        logger.info("JSTREAM client token obtained successfully.")
 
         # ユーザーセッションIDの取得
+        logger.info(f"Fetching JSTREAM session ID for user {email} and stream {stream_id}...")
         session_id = await _get_jstream_user_session_id(client, jstream_client_token, email, stream_id)
+        logger.info(f"JSTREAM session ID obtained successfully: {session_id}")
 
         # 再生URLの構築
         playback_url = AUTHENTICATED_URL.replace("{session_id}", session_id)
+        logger.info(f"Playback URL generated: {playback_url}")
 
         return JSONResponse(content={"playback_url": playback_url})
-    
+
     except jwt.ExpiredSignatureError:
+        logger.warning("JWT expired")
         raise HTTPException(status_code=401, detail="Token expired")
     except jwt.InvalidTokenError:
+        logger.warning("Invalid JWT token")
         raise HTTPException(status_code=401, detail="Invalid token")
     except HTTPException as e:
+        logger.error(f"HTTPException raised: {e.detail}")
         raise e
     except Exception as e:
-        logger.error(f"セッションID取得中に予期せぬエラーが発生しました: {e}")
-        raise HTTPException(status_code=500, detail="セッションID取得中にエラーが発生しました。")
+        logger.error(f"Unexpected error during /session processing: {e}")
+        raise HTTPException(status_code=500, detail="Error occurred while obtaining session ID")
 
 
 # --------------------------
