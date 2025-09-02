@@ -262,19 +262,36 @@ async def oauth_callback(
                 continue
 
     # 5. JWT生成（email + has_ticket + JSTREAM登録情報）
-    payload = {
-        "email": email,
+    # フロント用
+    front_payload = {
         "has_ticket": has_ticket,
-        "exp": int(time.time()) + JWT_EXP,
-        "jstream_registered_tracks": jstream_registered_tracks
+        "exp": int(time.time()) + 60
     }
-    token = jwt.encode(payload, JWT_SECRET, algorithm="HS256")
-    logger.info(f"JWTを生成しました。")
+    front_token = jwt.encode(front_payload, JWT_SECRET, algorithm="HS256")
+    logger.info(f"Client JWTを生成しました。")
+
+    # サーバー用（秘匿情報）
+    server_payload = {
+        "email": email,
+        "jstream_registered_tracks": jstream_registered_tracks,
+        "exp": int(time.time()) + JWT_EXP
+    }
+    server_token = jwt.encode(server_payload, JWT_SECRET, algorithm="HS256")
+    logger.info(f"Server JWTを生成しました。")
 
     # 6. 静的ページにリダイレクト
-    redirect_url = f"{STATIC_PAGE_URL}?token={quote(token)}"
+    redirect_url = f"{STATIC_PAGE_URL}?token={quote(front_token)}"
+    response = RedirectResponse(url=redirect_url)
+    response.set_cookie(
+        key="server_token",
+        value=server_token,
+        httponly=True,
+        secure=True,
+        samesite="Lax",
+        max_age=JWT_EXP
+    )
     logger.info(f"静的ページへリダイレクトします: {redirect_url}")
-    return RedirectResponse(url=redirect_url)
+    return response
 
 # --------------------------
 # セッションID取得API
