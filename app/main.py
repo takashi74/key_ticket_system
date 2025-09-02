@@ -305,12 +305,15 @@ async def get_session_id(
     client: httpx.AsyncClient = Depends(get_httpx_client)
 ):
     # Cookie または Authorization ヘッダをチェック
+    logger.info("トークンをチェックします。")
     token = request.cookies.get("server_token")
     if not token:
+        logger.info("Cookieにトークンがないため、Authorizationヘッダをチェックします。")
         auth_header = request.headers.get("Authorization")
         if auth_header and auth_header.startswith("Bearer "):
             token = auth_header[7:]
     if not token:
+        logger.info("トークンが見つかりませんでした。")
         raise HTTPException(status_code=401, detail="Missing server token")
 
     try:
@@ -318,6 +321,8 @@ async def get_session_id(
         decoded_jwt = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
         email = decoded_jwt["email"]
         registered_tracks = decoded_jwt.get("jstream_registered_tracks", {})
+        for track_id, is_registered in registered_tracks.items():
+            logger.info(f" - トラックID: {track_id}, 登録状況: {is_registered}")
 
         logger.info(f"JWT decoded. Email={email}, registered_tracks={registered_tracks}")
 
@@ -328,9 +333,11 @@ async def get_session_id(
 
         # JSTREAMトークン取得
         jstream_client_token = await _get_jstream_client_credentials_token(client)
+        logger.info(f"JSTREAM client token obtained.")
 
         # ユーザーセッションID取得
         session_id = await _get_jstream_user_session_id(client, jstream_client_token, email, stream_id)
+        logger.info(f"User session ID obtained: {session_id}")  
 
         # 再生URL生成
         playback_url = (
