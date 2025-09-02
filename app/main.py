@@ -299,42 +299,38 @@ async def oauth_callback(
 @app.get("/session")
 async def get_session_id(
     request: Request,
-    token: str = Query(...),
     stream_id: str = Query(...),
     is_debug: bool = Query(False),
     client: httpx.AsyncClient = Depends(get_httpx_client)
 ):
-    try:
-        logger.info(f"/session API called. Token: {token}, Stream ID: {stream_id}")
+    token = request.cookies.get("server_token")
+    if not token:
+        raise HTTPException(status_code=401, detail="Missing server_token")
 
+    try:
         # JWTデコード
         decoded_jwt = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
-        email = decoded_jwt.get("email")
-        logger.info(f"JWT decoded successfully. Email: {email}")
-
-        # 登録済みトラックのチェック
+        email = decoded_jwt["email"]
         registered_tracks = decoded_jwt.get("jstream_registered_tracks", {})
-        
-        # ここで詳細ログ出力
-        logger.info(f"JWT jstream_registered_tracks content: {registered_tracks}")
-        logger.info(f"Requested stream_id: {stream_id}")
-        logger.info(f"Is user registered for requested stream? {registered_tracks.get(stream_id, False)}")
-        
+
+        logger.info(f"JWT decoded. Email={email}, registered_tracks={registered_tracks}")
+
+        # 登録チェック
         if not registered_tracks.get(stream_id, False):
             logger.warning(f"User {email} is not registered for stream {stream_id}")
-            raise HTTPException(status_code=403, detail="User is not registered for this stream.")
+            raise HTTPException(status_code=403, detail="User not registered for this stream.")
 
-        # クライアントトークンの取得
+        # JSTREAMトークン取得
         jstream_client_token = await _get_jstream_client_credentials_token(client)
 
-        # ユーザーセッションIDの取得
+        # ユーザーセッションID取得
         session_id = await _get_jstream_user_session_id(client, jstream_client_token, email, stream_id)
 
-        # 再生URLの構築
-        if is_debug:
-            playback_url = "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8"
-        else:
-            playback_url = AUTHENTICATED_URL.replace("{session_id}", session_id)
+        # 再生URL生成
+        playback_url = (
+            "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8"
+            if is_debug else AUTHENTICATED_URL.replace("{session_id}", session_id)
+        )
         logger.info(f"Playback URL generated: {playback_url}")
 
         return JSONResponse(content={"playback_url": playback_url})
@@ -345,34 +341,11 @@ async def get_session_id(
     except jwt.InvalidTokenError:
         logger.warning("Invalid JWT token")
         raise HTTPException(status_code=401, detail="Invalid token")
-    except HTTPException as e:
-        logger.error(f"HTTPException raised: {e.detail}")
-        raise e
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Unexpected error during /session processing: {e}")
+        logger.error(f"Unexpected error in /session: {e}")
         raise HTTPException(status_code=500, detail="Error occurred while obtaining session ID")
-
-
-# --------------------------
-# JWT検証API
-# --------------------------
-@app.get("/verify")
-async def verify(token: str = Query(...)):
-    logger.info(f"Received token for verification: {token}")
-    try:
-        decoded = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
-        logger.info(f"Decoded payload: {decoded}")
-        return {
-            "email": decoded["email"],
-            "has_ticket": decoded["has_ticket"],
-            "jstream_registered_tracks": decoded.get("jstream_registered_tracks", {})
-        }
-    except jwt.ExpiredSignatureError:
-        logger.warning("JWT expired")
-        raise HTTPException(status_code=401, detail="Token expired")
-    except jwt.InvalidTokenError as e:
-        logger.warning(f"Invalid token: {e}")
-        raise HTTPException(status_code=401, detail="Invalid token")
 
 # --------------------------
 # ライブ情報取得API
