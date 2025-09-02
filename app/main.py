@@ -287,8 +287,9 @@ async def oauth_callback(
         value=server_token,
         httponly=True,
         secure=True,
-        samesite="Lax",
-        max_age=JWT_EXP
+        samesite="None",
+        max_age=JWT_EXP,
+        domain="auth.streamtech.cloud"
     )
     logger.info(f"静的ページへリダイレクトします: {redirect_url}")
     return response
