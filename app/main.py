@@ -17,7 +17,6 @@ from dotenv import load_dotenv
 from app.core.logger import logger
 from app.core.config import *
 
-from app.services import jstream
 
 # --------------------------
 # FastAPI 初期化
@@ -51,6 +50,32 @@ def get_httpx_client(request: Request) -> httpx.AsyncClient:
 # --------------------------
 # JSTREAMアクセストークン取得ヘルパー関数
 # --------------------------
+async def _get_jstream_client_credentials_token(client: httpx.AsyncClient) -> str:
+    logger.info("J-Stream Access Tokenの取得APIを呼び出します")
+    try:
+        jstream_auth_base_url = "https://" + "/".join(JSTREAM_API_LIVE.split('/')[:1])
+
+        response = await client.post(
+            f"{jstream_auth_base_url}/v2.0/{JSTREAM_TENANT_KEY}/oauth2/token",
+            params={
+                "client_key": JSTREAM_CLIENT_KEY,
+                "client_secret": JSTREAM_CLIENT_SECRET,
+                "grant_type": "client_credentials",
+                "resource": f"{jstream_auth_base_url}/"
+            }
+        )
+        response.raise_for_status()
+        access_token = response.json().get("access_token")
+        if access_token:
+            logger.info("J-Stream Access Tokenの取得に成功しました")
+        return access_token
+    except httpx.HTTPStatusError as e:
+        logger.error(f"J-Stream Access Token取得エラー: {e.response.status_code} - {e.response.text}")
+        raise HTTPException(status_code=e.response.status_code, detail=f"Failed to get JSTREAM client token: {e.response.text}")
+    except Exception as e:
+        logger.error(f"J-Stream Access Token取得中に予期せぬエラーが発生しました: {e}")
+        raise HTTPException(status_code=500, detail="J-Stream Access Token取得中にエラーが発生しました")
+
 async def _register_jstream_user(client: httpx.AsyncClient, client_token: str, stream_id: str, email: str) -> None:
     """J-Stream HLS-Authにユーザーを登録する"""
     logger.info(f"J-Stream HLS-Authユーザー登録APIを呼び出します。ユーザー: {email}, ストリームID: {stream_id}...")
@@ -219,10 +244,7 @@ async def oauth_callback(
     jstream_registered_tracks = {}
     if has_ticket:
         # 1段階目: クライアントレベルのトークンを取得
-        try:
-            jstream_client_token = await jstream.get_jstream_client_credentials_token(httpx.AsyncClient)
-        except jstream.JstreamServiceError as e:
-            raise HTTPException(status_code=500, detail=str(e))
+        jstream_client_token = await _get_jstream_client_credentials_token(client)
 
         # すべてのライブトラックに対してユーザーを登録
         for track in config["live"]["track"]:
