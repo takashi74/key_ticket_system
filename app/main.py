@@ -304,9 +304,14 @@ async def get_session_id(
     is_debug: bool = Query(False),
     client: httpx.AsyncClient = Depends(get_httpx_client)
 ):
+    # Cookie または Authorization ヘッダをチェック
     token = request.cookies.get("server_token")
     if not token:
-        raise HTTPException(status_code=401, detail="Missing server_token")
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header[7:]
+    if not token:
+        raise HTTPException(status_code=401, detail="Missing server token")
 
     try:
         # JWTデコード
