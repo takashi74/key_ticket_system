@@ -32,9 +32,9 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 # CORS設定
-origins = ALLOWED_ORIGINS_STR.split(',') if ALLOWED_ORIGINS_STR else []
-methods = ALLOWED_METHODS_STR.split(',') if ALLOWED_METHODS_STR else ["*"]
-headers = ALLOWED_HEADERS_STR.split(',') if ALLOWED_HEADERS_STR else ["*"]
+origins = [o.strip() for o in ALLOWED_ORIGINS_STR.split(',')] if ALLOWED_ORIGINS_STR else []
+methods = [m.strip() for m in ALLOWED_METHODS_STR.split(',')] if ALLOWED_METHODS_STR else ["*"]
+headers = [h.strip() for h in ALLOWED_HEADERS_STR.split(',')] if ALLOWED_HEADERS_STR else ["*"]
 
 app.add_middleware(
     CORSMiddleware,
