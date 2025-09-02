@@ -73,10 +73,14 @@ sequenceDiagram
         Note over P,I: POST https://api.stream.co.jp/v2.0/wlives
         I-->>P: ライブ情報の取得
         P->>J: ストリームIDの発行
-        Note over P,J: https://api.stream.co.jp/v2.0/service/hlsauth
+        Note over P,J: PUT https://api.stream.co.jp/v2.0/service/hlsauth
         J-->>P: ストリームID
         P->>D: authenticated_url, stream_idをconfig.tomlに反映
         P->>I: ライブ配信を実施
+        I-->>P: MonitorURLで確認
+        P->>J: ライブオープン
+        Note over P,J: PUT https://api-dev.stream.co.jp/v2.0/wlives/{live_id}/open
+        J-->>P: accept
     end
     A-->>U: 初期ページの表示<br>空のhls.jsを提供
     U->>A: 再生権限の取得ボタンを押下
@@ -102,13 +106,15 @@ sequenceDiagram
     J-->>D: accepted
     D->>D: Encode JWT
     D->>A: JWT付きで視聴ページにリダイレクト
+    Note over D,A: URL token, Server Cookie Token
     A->>A: JWTからHLSアドレスを取得しプレイヤーを構築
     end
     opt 購入フラグが有効な場合
     U->>A: hls.jsの再生ボタンを有効化<br>再生開始
+    Note over U,A: Server Cookie JWT
     end
     A->>D: JWTの整合性を確認
-    Note over A,D: /verify
+    Note over A,D: /session
     opt 購入していない場合 整合性が不正な場合
     D->>A: 購入を促すエラーメッセージを表示
     end
@@ -118,4 +124,25 @@ sequenceDiagram
     D->>A: authenticated_urlとsession_idから再生可能なアドレスを返却
     A->>A: イベントリスナーでプレイヤーにHLSアドレスを割り当て
     A->>U: 動画の視聴
+```
+
+## System Diagram
+```mermaid
+architecture-beta
+    group pyconjp(cloud)[PyCon JP]
+    group jstream(cloud)[JStream]
+    group pretix(cloud)[Pretix]
+
+    service web(server)[Cloudflare Pages] in pyconjp
+    service server(server)[nginx] in jstream
+    service server1(server)[fastapi1] in jstream
+    service server2(server)[fastapi2] in jstream
+    service server3(server)[fsatapi3] in jstream
+    service db(internet)[Pretix API] in pretix
+
+    web:B --> T:db
+    db:R --> L:server
+    server:R -- L:server1
+    server:R -- L:server2
+    server:R -- L:server3
 ```
