@@ -1,10 +1,10 @@
 # PyCon JP 2025 Setting
 
 [page]
-url = "https://pycon-live-viewer.pages.dev/"
+url = "https://2025-live-dev.pycon.jp/"
 
 [page.cors]
-origin = "https://pycon-live-viewer.pages.dev"
+origin = "https://2025-live-dev.pycon.jp"
 method = "*"
 header = "*"
 

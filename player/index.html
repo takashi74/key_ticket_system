@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PyCon JP 2025 Live</title>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  body { font-family: 'IBM Plex Sans JP', sans-serif; }
+</style>
+</head>
+<body class="bg-slate-100 text-slate-900 min-h-screen flex flex-col">
+
+<header class="bg-white text-slate-900 p-4 flex flex-col sm:flex-row justify-between items-center shadow-2xl">
+    <h1 class="text-xl sm:text-2xl font-bold mb-2 sm:mb-0">PyCon JP 2025 Live</h1>
+    <div class="flex space-x-2">
+        <a id="purchase-btn" href="https://pretix.eu/pyconjp/2025/" class="px-4 py-2 rounded-lg font-medium transition-colors duration-200 bg-orange-500 hover:bg-orange-600 text-white" target="_blank">視聴チケット購入</a>
+        <button id="get-rights-btn" class="px-4 py-2 rounded-lg font-medium transition-colors duration-200 bg-gray-200 hover:bg-gray-300 text-slate-800">視聴権利の取得</button>
+    </div>
+</header>
+
+<main class="p-4 grid gap-6 grid-cols-1 sm:grid-cols-2">
+    <!-- プレイヤーはここに動的生成 -->
+</main>
+
+<script>
+const CLIENT_ID = "i0VwMUzGedRaeEq1OVFZ7ez9XGnKeptlTOEK5Nlr";
+const REDIRECT_URI = "https://2025-live-dev.pycon.jp/callback";
+
+// URLパラメータからトークンとis_debugを取得
+const urlParams = new URLSearchParams(window.location.search);
+const is_debug = urlParams.get('is_debug') === '1';
+let token = urlParams.get('token');
+
+/**
+ * JWTデコード
+ */
+function decodeJwt(token) {
+    if (!token) return null;
+    try {
+        const payloadBase64 = token.split('.')[1];
+        return JSON.parse(atob(payloadBase64));
+    } catch (e) {
+        console.error("JWTデコード失敗", e);
+        return null;
+    }
+}
+
+/**
+ * HLS動画セット
+ */
+function setVideoSource(video, url) {
+    if (Hls.isSupported()) {
+        const hls = new Hls();
+        hls.loadSource(url);
+        hls.attachMedia(video);
+        hls.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(()=>{}));
+    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        video.src = url;
+        video.addEventListener('loadedmetadata', () => video.controls = true);
+    } else {
+        console.error("HLS非対応ブラウザ");
+    }
+}
+
+/**
+ * ボタン有効化
+ */
+function enablePlayButtons(hasTicket) {
+    const purchaseBtn = document.getElementById('purchase-btn');
+    const getRightsBtn = document.getElementById('get-rights-btn');
+    
+    // チケットを持っている場合、購入ボタンを非表示にし、取得ボタンのテキストを変更
+    if (hasTicket) {
+        purchaseBtn.style.display = 'none';
+        getRightsBtn.textContent = '再取得';
+        getRightsBtn.classList.remove('bg-gray-200','hover:bg-gray-300','text-slate-800');
+        getRightsBtn.classList.add('bg-orange-500','hover:bg-orange-600','text-white');
+    }
+
+    const tracks = [
+        {id: '621134ad-121a-4e92-b6e9-ea09de54e884'},
+        {id: 'fe72bd0e-6c27-4b9d-85fc-f1b59f91df8b'},
+        {id: '2509643d-7e23-4719-88b9-99f119040adb'},
+        {id: '250db474-6d80-4d22-8d4d-5c14ffa3c388'}
+    ];
+    tracks.forEach(track => {
+        const videoElement = document.getElementById(track.id);
+        if (!videoElement) return;
+        const btn = videoElement.nextElementSibling;
+        if (btn && btn.tagName==='BUTTON') {
+            btn.disabled=false;
+            btn.classList.remove('bg-gray-200','hover:bg-gray-300','text-slate-800');
+            btn.classList.add('bg-orange-500','hover:bg-orange-600','text-white');
+        }
+    });
+}
+
+/**
+ * トラック要素生成
+ */
+function createTrack(trackId, title) {
+    const container = document.createElement('div');
+    container.className = 'bg-white p-4 rounded-xl shadow-xl flex flex-col items-center';
+
+    const h3 = document.createElement('h3');
+    h3.className = 'text-lg font-semibold mb-3 text-slate-900';
+    h3.textContent = title;
+
+    const video = document.createElement('video');
+    video.id = trackId;
+    video.poster = 'poster.png';
+    video.controls = true;
+    video.autoplay = false;
+    video.muted = false;
+    video.className = 'w-full h-auto rounded-lg shadow-md';
+
+    const btn = document.createElement('button');
+    btn.className = 'mt-4 px-6 py-2 rounded-full font-bold transition-all duration-300 transform hover:scale-105 bg-gray-200 hover:bg-gray-300 text-slate-800';
+    btn.textContent = '視聴開始';
+    btn.disabled = true;
+
+    btn.addEventListener('click', async () => {
+        try {
+            btn.disabled = true;
+            btn.textContent = '再生準備中...';
+
+            let sessionUrl = `https://2025-live-dev.pycon.jp/session?stream_id=${trackId}`;
+            if (is_debug) sessionUrl += "&is_debug=1";
+
+            const fetchOptions = {
+                credentials: 'include'
+            };
+
+            if (token) {
+                fetchOptions.headers = { 'Authorization': `Bearer ${token}` };
+            }
+
+            const response = await fetch(sessionUrl, fetchOptions);
+            if (!response.ok) throw new Error('ストリーム取得失敗');
+
+            const data = await response.json();
+            setVideoSource(video, data.playback_url);
+            btn.textContent = '再生中';
+        } catch (e) {
+            console.error("ストリーム取得エラー", e);
+            alert("再生に失敗しました。視聴権利があるかご確認ください。");
+            btn.textContent = '視聴開始';
+            btn.disabled = false;
+        }
+    });
+
+    container.appendChild(h3);
+    container.appendChild(video);
+    container.appendChild(btn);
+    document.querySelector('main').appendChild(container);
+}
+
+// 初期化
+window.onload = () => {
+    const getRightsBtn = document.getElementById('get-rights-btn');
+    
+    const tracks = [
+        {id: '621134ad-121a-4e92-b6e9-ea09de54e884', title: 'Track 1'},
+        {id: 'fe72bd0e-6c27-4b9d-85fc-f1b59f91df8b', title: 'Track 2'},
+        {id: '2509643d-7e23-4719-88b9-99f119040adb', title: 'Track 3'},
+        {id: '250db474-6d80-4d22-8d4d-5c14ffa3c388', title: 'Track 4'}
+    ];
+
+    tracks.forEach(track => createTrack(track.id, track.title));
+
+    getRightsBtn.addEventListener('click', () => {
+        const url = new URL('https://pretix.eu/pyconjp/oauth2/v1/authorize');
+        url.searchParams.set('client_id', CLIENT_ID);
+        url.searchParams.set('response_type', 'code');
+        url.searchParams.set('scope', 'openid profile email');
+        url.searchParams.set('redirect_uri', REDIRECT_URI);
+        window.location.href = url.toString();
+    });
+
+    if (token) {
+        const payload = decodeJwt(token);
+        if (payload && payload.has_ticket) enablePlayButtons(true); // 引数を渡すように修正
+    }
+};
+</script>
+</body>
+</html>
