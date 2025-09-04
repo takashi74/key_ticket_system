@@ -12,6 +12,7 @@ import httpx
 import tomllib
 from fastapi import FastAPI, Request, Query, HTTPException, Depends, status
 from fastapi.responses import RedirectResponse, JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
