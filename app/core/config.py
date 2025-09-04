@@ -15,6 +15,8 @@ REQUIRED_ENV = [
     "JSTREAM_CLIENT_KEY",
     "JSTREAM_CLIENT_SECRET",
     "JWT_SECRET",
+    "BASIC_USER",
+    "BASIC_PASS"
 ]
 
 try:
