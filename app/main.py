@@ -3,14 +3,16 @@ import os
 import time
 import json
 import io
+import secrets
 import asyncio
 from contextlib import asynccontextmanager
 from urllib.parse import quote
 import jwt
 import httpx
 import tomllib
-from fastapi import FastAPI, Request, Query, HTTPException, Depends
+from fastapi import FastAPI, Request, Query, HTTPException, Depends, status
 from fastapi.responses import RedirectResponse, JSONResponse, FileResponse
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
@@ -159,7 +161,24 @@ async def _get_jstream_user_session_id(
 # --------------------------
 # プレイヤーページ
 # --------------------------
-@app.get("/")
+security = HTTPBasic()
+
+def conditional_auth(request: Request, credentials: HTTPBasicCredentials = Depends(security)):
+    host = request.headers.get("host", "")
+    
+    # サブドメインに "-dev" が含まれる場合のみ認証を要求
+    if "-dev" in host:
+        correct_username = secrets.compare_digest(credentials.username, BASIC_USER)
+        correct_password = secrets.compare_digest(credentials.password, BASIC_PASS)
+        if not (correct_username and correct_password):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid credentials",
+                headers={"WWW-Authenticate": "Basic"},
+            )
+
+
+@app.get("/", dependencies=[Depends(authenticate_for_aaa)])
 async def player():
     return FileResponse(os.path.join("player", "index.html"))
 
@@ -293,7 +312,7 @@ async def oauth_callback(
         value=server_token,
         httponly=True,
         secure=True,
-        samesite="None",
+        samesite="lax",
         max_age=JWT_EXP,
         domain="2025-live-dev.pycon.jp"
     )
