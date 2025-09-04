@@ -295,7 +295,7 @@ async def oauth_callback(
         secure=True,
         samesite="None",
         max_age=JWT_EXP,
-        domain="auth.streamtech.cloud"
+        domain="2025-live-dev.pycon.jp"
     )
     logger.info(f"静的ページへリダイレクトします: {redirect_url}")
     return response
