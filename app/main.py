@@ -10,7 +10,7 @@ import jwt
 import httpx
 import tomllib
 from fastapi import FastAPI, Request, Query, HTTPException, Depends
-from fastapi.responses import RedirectResponse, JSONResponse
+from fastapi.responses import RedirectResponse, JSONResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
@@ -156,6 +156,12 @@ async def _get_jstream_user_session_id(
         )
 
 
+# --------------------------
+# プレイヤーページ
+# --------------------------
+@app.get("/")
+async def player():
+    return FileResponse(os.path.join("player", "index.html"))
 
 # --------------------------
 # OAuth2 コールバック
