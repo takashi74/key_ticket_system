@@ -66,6 +66,8 @@ def get_httpx_client(request: Request) -> httpx.AsyncClient:
 #                 headers={"WWW-Authenticate": "Basic"},
 #             )
 
+app.mount("/img", StaticFiles(directory="player/img"), name="img")
+
 # @app.get("/", dependencies=[Depends(authenticate_for_aaa)])
 @app.get("/")
 async def player():
