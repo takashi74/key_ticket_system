@@ -11,7 +11,7 @@ header = "*"
 [api.pretix]
 base = "https://pretix.eu"
 organizer = "pyconjp"
-redirect_uri = "https://auth.streamtech.cloud/callback"
+redirect_uri = "https://2025-live-dev.pycon.jp/callback"
 
 [api.jstream]
 wlive = "api-dev.stream.co.jp/v2.0/wlives"
