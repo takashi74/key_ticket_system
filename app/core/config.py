@@ -14,9 +14,7 @@ REQUIRED_ENV = [
     "JSTREAM_TENANT_KEY",
     "JSTREAM_CLIENT_KEY",
     "JSTREAM_CLIENT_SECRET",
-    "JWT_SECRET",
-    "BASIC_USER",
-    "BASIC_PASS"
+    "JWT_SECRET"
 ]
 
 try:
@@ -31,8 +29,6 @@ try:
     JSTREAM_CLIENT_KEY = os.environ["JSTREAM_CLIENT_KEY"]
     JSTREAM_CLIENT_SECRET = os.environ["JSTREAM_CLIENT_SECRET"]
     JWT_SECRET = os.environ["JWT_SECRET"]
-    BASIC_USER = os.environ["BASIC_USER"]
-    BASIC_PASS = os.environ["BASIC_PASS"]
     
     # JWT有効期限の取得（デフォルト値付き）
     try:

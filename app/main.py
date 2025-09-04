@@ -50,6 +50,29 @@ def get_httpx_client(request: Request) -> httpx.AsyncClient:
     return request.app.state.httpx_client
 
 # --------------------------
+# プレイヤーページ
+# --------------------------
+# security = HTTPBasic()
+# def conditional_auth(request: Request, credentials: HTTPBasicCredentials = Depends(security)):
+#     host = request.headers.get("host", "")
+#     # サブドメインに "-dev" が含まれる場合のみ認証を要求
+#     if "-dev" in host:
+#         correct_username = secrets.compare_digest(credentials.username, BASIC_USER)
+#         correct_password = secrets.compare_digest(credentials.password, BASIC_PASS)
+#         if not (correct_username and correct_password):
+#             raise HTTPException(
+#                 status_code=status.HTTP_401_UNAUTHORIZED,
+#                 detail="Invalid credentials",
+#                 headers={"WWW-Authenticate": "Basic"},
+#             )
+
+# @app.get("/", dependencies=[Depends(authenticate_for_aaa)])
+@app.get("/")
+async def player():
+    return FileResponse(os.path.join("player", "index.html"))
+
+
+# --------------------------
 # JSTREAMアクセストークン取得ヘルパー関数
 # --------------------------
 async def _get_jstream_client_credentials_token(client: httpx.AsyncClient) -> str:
@@ -156,31 +179,6 @@ async def _get_jstream_user_session_id(
             status_code=500,
             detail="JSTREAMセッションID取得中にエラーが発生しました。"
         )
-
-
-# --------------------------
-# プレイヤーページ
-# --------------------------
-security = HTTPBasic()
-
-def conditional_auth(request: Request, credentials: HTTPBasicCredentials = Depends(security)):
-    host = request.headers.get("host", "")
-    
-    # サブドメインに "-dev" が含まれる場合のみ認証を要求
-    if "-dev" in host:
-        correct_username = secrets.compare_digest(credentials.username, BASIC_USER)
-        correct_password = secrets.compare_digest(credentials.password, BASIC_PASS)
-        if not (correct_username and correct_password):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid credentials",
-                headers={"WWW-Authenticate": "Basic"},
-            )
-
-
-@app.get("/", dependencies=[Depends(authenticate_for_aaa)])
-async def player():
-    return FileResponse(os.path.join("player", "index.html"))
 
 # --------------------------
 # OAuth2 コールバック
