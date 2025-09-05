@@ -129,20 +129,17 @@ sequenceDiagram
 ## System Diagram
 ```mermaid
 architecture-beta
-    group pyconjp(cloud)[PyCon JP]
-    group jstream(cloud)[JStream]
     group pretix(cloud)[Pretix]
+    group pyconjp(cloud)[PyCon JP]
+    group cloudflare(cloud)[Cloudflare] in pyconjp
+    group jstream(cloud)[JStream]
 
-    service web(server)[Cloudflare Pages] in pyconjp
-    service server(server)[nginx] in jstream
-    service server1(server)[fastapi1] in jstream
-    service server2(server)[fastapi2] in jstream
-    service server3(server)[fsatapi3] in jstream
-    service db(internet)[Pretix API] in pretix
+    service web(internet)[pyconjp] in cloudflare
+    service fastapi(server)[fastapi] in pyconjp
+    service user(internet)[Pretix] in pretix
+    service stream(internet)[HLSAuth] in jstream
 
-    web:B --> T:db
-    db:R --> L:server
-    server:R -- L:server1
-    server:R -- L:server2
-    server:R -- L:server3
+    web:R --> L:fastapi
+    fastapi:R <--> L:user
+    fastapi:T <--> B:stream
 ```
